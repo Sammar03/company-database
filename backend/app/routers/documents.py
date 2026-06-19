@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
+from ..auth import require_api_key
 from ..config import get_settings
 from ..embeddings import embed_documents
 from ..ingest import SUPPORTED_EXTENSIONS, parse_and_chunk
@@ -17,7 +18,7 @@ from ..models import (
 )
 from ..vectorstore import add_chunks, delete_document, list_documents
 
-router = APIRouter(prefix="/documents", tags=["documents"])
+router = APIRouter(prefix="/documents", tags=["documents"], dependencies=[Depends(require_api_key)])
 logger = logging.getLogger(__name__)
 
 
@@ -31,6 +32,11 @@ async def upload_documents(files: list[UploadFile]) -> IngestResponse:
         raise HTTPException(status_code=400, detail="No files provided.")
 
     settings = get_settings()
+    if len(files) > settings.max_files_per_request:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Too many files (max {settings.max_files_per_request} per request).",
+        )
     max_bytes = settings.max_upload_mb * 1024 * 1024
     indexed: list[IndexedDocument] = []
     errors: list[str] = []

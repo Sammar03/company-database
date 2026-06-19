@@ -42,7 +42,7 @@ class DeleteResponse(BaseModel):
 # ---- Chat ----
 class ChatTurn(BaseModel):
     role: Role
-    content: str
+    content: str = Field(max_length=8000)
 
 
 class Source(BaseModel):
@@ -54,8 +54,8 @@ class Source(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1)
-    history: list[ChatTurn] = Field(default_factory=list)
+    message: str = Field(min_length=1, max_length=4000)
+    history: list[ChatTurn] = Field(default_factory=list, max_length=50)
 
 
 class ChatResponse(BaseModel):

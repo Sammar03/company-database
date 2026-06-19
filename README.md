@@ -48,19 +48,22 @@ npm run dev                      # http://localhost:5173
 |---|---|
 | `GEMINI_API_KEY` | Google AI Studio key for embeddings (required) |
 | `GROQ_API_KEY` | Groq key for generation (required) |
+| `API_KEY` | Shared secret; clients must send it as `X-API-Key`. Empty = auth off (dev); **set in prod** |
 | `DATABASE_URL` | Neon Postgres connection string with `?sslmode=require` (required) |
 | `EMBED_MODEL` / `EMBED_DIMS` | `gemini-embedding-2` / `768` |
 | `GEN_MODEL` | `llama-3.3-70b-versatile` |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` / `TOP_K` | `1000` / `150` / `5` |
-| `MAX_UPLOAD_MB` / `MAX_CHUNKS_PER_DOC` / `MAX_HISTORY_TURNS` | `25` / `1000` / `6` |
+| `MAX_UPLOAD_MB` / `MAX_CHUNKS_PER_DOC` / `MAX_FILES_PER_REQUEST` / `MAX_HISTORY_TURNS` | `25` / `1000` / `20` / `6` |
 | `CORS_ORIGINS` | Comma-separated allowed origins (default `http://localhost:5173`; **set to your deployed frontend URL in prod**) |
 
 ### Frontend (`frontend/.env`)
 | Var | Description |
 |---|---|
 | `VITE_API_BASE` | Backend API base, e.g. `http://localhost:8010/api` |
+| `VITE_API_KEY` | Must match the backend `API_KEY` (empty if backend auth is off) |
 
 ## API (base `/api`)
+`/documents` and `/chat` require the `X-API-Key` header when `API_KEY` is set. `/health` is open.
 - `GET /health` → `{ status }` (lightweight liveness probe)
 - `POST /documents` (multipart `files`) → `{ indexed, errors }`
 - `GET /documents` → `{ documents }`
@@ -88,7 +91,8 @@ npm run dev                      # http://localhost:5173
    `backend/README.md` — whose YAML header sets `sdk: docker` and `app_port: 8000` —
    must sit at the Space repo root).
 3. In the Space → **Settings → Variables and secrets**, add: `GEMINI_API_KEY`,
-   `GROQ_API_KEY`, `DATABASE_URL` (Neon), and `CORS_ORIGINS=https://<your-frontend>.vercel.app`.
+   `GROQ_API_KEY`, `DATABASE_URL` (Neon), `API_KEY` (a long random secret), and
+   `CORS_ORIGINS=https://<your-frontend>.vercel.app`.
 4. The Space builds the image and serves at `https://<user>-<space>.hf.space`.
    API base: `https://<user>-<space>.hf.space/api`. Health: `/api/health`.
 
@@ -97,7 +101,7 @@ npm run dev                      # http://localhost:5173
 
 ### Frontend → Vercel
 1. New Vercel project, root `/frontend` (Vite auto-detected; `vercel.json` included).
-2. Set `VITE_API_BASE=https://<user>-<space>.hf.space/api`.
+2. Set `VITE_API_BASE=https://<user>-<space>.hf.space/api` and `VITE_API_KEY=<same as backend API_KEY>`.
 3. Deploy — `npm run build` → `dist`.
 
 ## Notes

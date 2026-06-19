@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     # Secrets
     gemini_api_key: str = ""
     groq_api_key: str = ""
+    # Shared secret for the API. When set, clients must send `X-API-Key`.
+    # When empty, auth is disabled (local dev) — set it in production.
+    api_key: str = ""
 
     # Vector store (Neon Postgres + pgvector)
     database_url: str = ""
@@ -29,6 +32,7 @@ class Settings(BaseSettings):
     # Limits
     max_upload_mb: int = 25
     max_chunks_per_doc: int = 1000  # cap embedding calls/cost per uploaded file
+    max_files_per_request: int = 20  # cap files per upload request
     max_history_turns: int = 6
 
     # CORS — comma-separated origins; the Vite dev origin by default.

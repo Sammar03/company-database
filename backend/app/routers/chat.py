@@ -1,13 +1,14 @@
 """Chat endpoint: retrieve + generate a grounded, cited answer."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import require_api_key
 from ..config import get_settings
 from ..generate import answer_question
 from ..models import ChatRequest, ChatResponse
 
-router = APIRouter(prefix="/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(require_api_key)])
 
 
 @router.post("", response_model=ChatResponse)

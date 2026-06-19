@@ -6,6 +6,11 @@ import type {
 } from "../types";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8010/api";
+const API_KEY = import.meta.env.VITE_API_KEY ?? "";
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return API_KEY ? { ...extra, "X-API-Key": API_KEY } : extra;
+}
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -32,12 +37,14 @@ export class ApiError extends Error {
 export async function uploadDocuments(files: File[]): Promise<IngestResponse> {
   const form = new FormData();
   for (const f of files) form.append("files", f);
-  return handle(await fetch(`${BASE}/documents`, { method: "POST", body: form }));
+  return handle(
+    await fetch(`${BASE}/documents`, { method: "POST", body: form, headers: authHeaders() })
+  );
 }
 
 export async function listDocuments(): Promise<DocumentInfo[]> {
   const data = await handle<{ documents: DocumentInfo[] }>(
-    await fetch(`${BASE}/documents`)
+    await fetch(`${BASE}/documents`, { headers: authHeaders() })
   );
   return data.documents;
 }
@@ -46,6 +53,7 @@ export async function deleteDocument(filename: string): Promise<void> {
   await handle(
     await fetch(`${BASE}/documents/${encodeURIComponent(filename)}`, {
       method: "DELETE",
+      headers: authHeaders(),
     })
   );
 }
@@ -60,7 +68,7 @@ export async function sendChat(
   return handle(
     await fetch(`${BASE}/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ message, history: trimmed }),
     })
   );
