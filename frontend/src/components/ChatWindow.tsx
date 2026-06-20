@@ -17,9 +17,9 @@ export default function ChatWindow({ messages, loading }: Props) {
 
   if (messages.length === 0 && !loading) {
     return (
-      <div className="flex h-full items-start justify-center pt-[18vh]">
+      <div className="flex h-full items-center justify-center">
         <p className="px-6 text-center text-2xl text-ink-black sm:px-16">
-          Where should I begin?
+          Your documents, ready to answer.
         </p>
       </div>
     );
