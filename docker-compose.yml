@@ -26,6 +26,8 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/postgres
       CORS_ORIGINS: http://localhost:5173
+      # ADMIN_KEY comes from backend/.env (gitignored). Empty = delete open locally.
+      # Never hardcode a real admin key here — this file is committed.
     ports:
       - "8010:8000"
     depends_on:

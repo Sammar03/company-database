@@ -17,3 +17,9 @@ def _ok(expected: str, provided: str | None) -> bool:
 def require_api_key(x_api_key: str | None = Header(default=None)) -> None:
     if not _ok(get_settings().api_key, x_api_key):
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")
+
+
+def require_admin_key(x_admin_key: str | None = Header(default=None)) -> None:
+    """Gate destructive ops (document delete). Separate secret, never in the frontend."""
+    if not _ok(get_settings().admin_key, x_admin_key):
+        raise HTTPException(status_code=403, detail="Admin privileges required.")

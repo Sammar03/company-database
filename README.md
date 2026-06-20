@@ -49,6 +49,7 @@ npm run dev                      # http://localhost:5173
 | `GEMINI_API_KEY` | Google AI Studio key for embeddings (required) |
 | `GROQ_API_KEY` | Groq key for generation (required) |
 | `API_KEY` | Shared secret; clients must send it as `X-API-Key`. Empty = auth off (dev); **set in prod** |
+| `ADMIN_KEY` | Admin secret for **deleting** documents (`X-Admin-Key`); never put in the frontend. Empty = delete open (dev) |
 | `DATABASE_URL` | Neon Postgres connection string with `?sslmode=require` (required) |
 | `EMBED_MODEL` / `EMBED_DIMS` | `gemini-embedding-2` / `768` |
 | `GEN_MODEL` | `llama-3.3-70b-versatile` |
@@ -64,10 +65,11 @@ npm run dev                      # http://localhost:5173
 
 ## API (base `/api`)
 `/documents` and `/chat` require the `X-API-Key` header when `API_KEY` is set. `/health` is open.
+`DELETE` additionally requires the `X-Admin-Key` header when `ADMIN_KEY` is set (admin-only).
 - `GET /health` → `{ status }` (lightweight liveness probe)
-- `POST /documents` (multipart `files`) → `{ indexed, errors }`
+- `POST /documents` (multipart `files`) → `{ indexed, errors }` (any user)
 - `GET /documents` → `{ documents }`
-- `DELETE /documents/{filename}` → `{ deleted, removed_chunks }`
+- `DELETE /documents/{filename}` → `{ deleted, removed_chunks }` (**admin only**)
 - `POST /chat` → `{ answer, sources, grounded }`
 
 ## External dependencies
@@ -91,7 +93,8 @@ npm run dev                      # http://localhost:5173
    `backend/README.md` — whose YAML header sets `sdk: docker` and `app_port: 8000` —
    must sit at the Space repo root).
 3. In the Space → **Settings → Variables and secrets**, add: `GEMINI_API_KEY`,
-   `GROQ_API_KEY`, `DATABASE_URL` (Neon), `API_KEY` (a long random secret), and
+   `GROQ_API_KEY`, `DATABASE_URL` (Neon), `API_KEY` (a long random secret),
+   `ADMIN_KEY` (a different secret, shared only with admins), and
    `CORS_ORIGINS=https://<your-frontend>.vercel.app`.
 4. The Space builds the image and serves at `https://<user>-<space>.hf.space`.
    API base: `https://<user>-<space>.hf.space/api`. Health: `/api/health`.

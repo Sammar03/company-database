@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # Shared secret for the API. When set, clients must send `X-API-Key`.
     # When empty, auth is disabled (local dev) — set it in production.
     api_key: str = ""
+    # Admin secret required to DELETE documents (sent as `X-Admin-Key`). Never
+    # ship this to the frontend bundle. Empty = delete open (local dev).
+    admin_key: str = ""
 
     # Vector store (Neon Postgres + pgvector)
     database_url: str = ""

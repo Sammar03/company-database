@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import json
+import time
 
-from groq import Groq
+from groq import Groq, RateLimitError
 
 from .config import get_settings
 from .embeddings import embed_query
@@ -15,6 +16,26 @@ RELEVANCE_THRESHOLD = 0.30
 
 # How many candidates to pull from the vector store before reranking down to top_k.
 RERANK_CANDIDATES = 15
+
+# Auto-retry a rate-limited generation only if the wait is this short (per-minute
+# limits). Longer waits (daily limits) are surfaced to the user instead of blocking.
+MAX_AUTORETRY_WAIT_S = 10
+
+
+class RateLimited(Exception):
+    """Groq rate limit we couldn't auto-clear; carries seconds until reset (if known)."""
+
+    def __init__(self, retry_after: float | None = None) -> None:
+        self.retry_after = retry_after
+        super().__init__("rate limited")
+
+
+def _retry_after_seconds(err: RateLimitError) -> float | None:
+    try:
+        ra = err.response.headers.get("retry-after")
+        return float(ra) if ra is not None else None
+    except Exception:  # noqa: BLE001 — best-effort header parse
+        return None
 
 SYSTEM_PROMPT = (
     "You are a company knowledge assistant. Answer the user's question using ONLY the "
@@ -92,6 +113,24 @@ def _rerank(message: str, candidates: list[Retrieved], top_k: int) -> list[Retri
         return candidates[:top_k]
 
 
+def _generate(messages: list[dict[str, str]], model: str) -> str:
+    """Call Groq once; on a short per-minute rate limit, wait and retry once.
+    On a persistent or long limit, raise RateLimited with the seconds to wait."""
+    client = _get_client()
+    kwargs = dict(model=model, messages=messages, temperature=0.2, max_tokens=1024)
+    try:
+        return client.chat.completions.create(**kwargs).choices[0].message.content or ""
+    except RateLimitError as err:
+        wait = _retry_after_seconds(err)
+        if wait is not None and wait <= MAX_AUTORETRY_WAIT_S:
+            time.sleep(wait + 0.5)
+            try:
+                return client.chat.completions.create(**kwargs).choices[0].message.content or ""
+            except RateLimitError as err2:
+                raise RateLimited(_retry_after_seconds(err2)) from err2
+        raise RateLimited(wait) from err
+
+
 def _build_context_block(chunks: list[Retrieved]) -> str:
     """Number each block [1], [2], … so the model can cite by number."""
     parts = []
@@ -127,14 +166,7 @@ def answer_question(
         }
     )
 
-    client = _get_client()
-    completion = client.chat.completions.create(
-        model=settings.gen_model,
-        messages=messages,
-        temperature=0.2,
-        max_tokens=1024,
-    )
-    answer = completion.choices[0].message.content or ""
+    answer = _generate(messages, settings.gen_model)
 
     grounded = "couldn't find that in the documents" not in answer.lower()
     # Don't attach citations to a refusal — the answer isn't actually drawn from them.

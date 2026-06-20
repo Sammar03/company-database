@@ -49,11 +49,11 @@ export async function listDocuments(): Promise<DocumentInfo[]> {
   return data.documents;
 }
 
-export async function deleteDocument(filename: string): Promise<void> {
+export async function deleteDocument(filename: string, adminKey: string): Promise<void> {
   await handle(
     await fetch(`${BASE}/documents/${encodeURIComponent(filename)}`, {
       method: "DELETE",
-      headers: authHeaders(),
+      headers: authHeaders({ "X-Admin-Key": adminKey }),
     })
   );
 }

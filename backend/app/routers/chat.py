@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import require_api_key
 from ..config import get_settings
-from ..generate import answer_question
+from ..generate import RateLimited, answer_question
 from ..models import ChatRequest, ChatResponse
 
 router = APIRouter(prefix="/chat", tags=["chat"], dependencies=[Depends(require_api_key)])
@@ -18,6 +18,13 @@ async def chat(req: ChatRequest) -> ChatResponse:
         answer, sources, grounded = answer_question(
             req.message, req.history, settings.top_k
         )
+    except RateLimited as err:
+        detail = (
+            f"Rate limit reached — try again in ~{int(err.retry_after)}s."
+            if err.retry_after
+            else "Rate limit reached — please retry shortly."
+        )
+        raise HTTPException(status_code=429, detail=detail) from err
     except Exception as err:  # noqa: BLE001
         msg = str(err).lower()
         if "rate" in msg or "429" in msg or "quota" in msg:

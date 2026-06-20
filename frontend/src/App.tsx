@@ -22,6 +22,12 @@ export default function App() {
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<{ text: string; error: boolean } | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Admin key is entered at runtime (never shipped in the bundle) and stored
+  // only on this device; required to delete documents.
+  const [adminKey, setAdminKey] = useState(
+    () => localStorage.getItem("company-rag-admin-key") ?? ""
+  );
+  const isAdmin = adminKey !== "";
 
   useEffect(() => saveChats(chats), [chats]);
 
@@ -85,10 +91,29 @@ export default function App() {
   const handleDeleteDoc = async (filename: string) => {
     setDeleting(filename);
     try {
-      await deleteDocument(filename);
+      await deleteDocument(filename, adminKey);
       await refresh();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        alert("Admin key rejected — re-enter it to delete documents.");
+        localStorage.removeItem("company-rag-admin-key");
+        setAdminKey("");
+      }
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const toggleAdmin = () => {
+    if (isAdmin) {
+      localStorage.removeItem("company-rag-admin-key");
+      setAdminKey("");
+      return;
+    }
+    const key = window.prompt("Enter admin key to enable document deletion:");
+    if (key) {
+      localStorage.setItem("company-rag-admin-key", key);
+      setAdminKey(key);
     }
   };
 
@@ -153,13 +178,23 @@ export default function App() {
           onDelete={handleDeleteChat}
         />
         <div className="mt-2">
-          <h2 className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-ash">
-            Documents
-          </h2>
+          <div className="flex items-center justify-between px-3 py-2">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-ash">
+              Documents
+            </h2>
+            <button
+              onClick={toggleAdmin}
+              className="text-[11px] text-ash transition hover:text-ink-black"
+              title={isAdmin ? "Exit admin mode" : "Enter admin key to delete documents"}
+            >
+              {isAdmin ? "Admin ✓" : "Admin"}
+            </button>
+          </div>
           <DocumentList
             documents={documents}
             onDelete={handleDeleteDoc}
             deleting={deleting}
+            isAdmin={isAdmin}
           />
         </div>
       </aside>

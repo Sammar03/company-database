@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
-from ..auth import require_api_key
+from ..auth import require_admin_key, require_api_key
 from ..config import get_settings
 from ..embeddings import embed_documents
 from ..ingest import SUPPORTED_EXTENSIONS, parse_and_chunk
@@ -90,7 +90,9 @@ async def get_documents() -> DocumentListResponse:
     return DocumentListResponse(documents=docs)
 
 
-@router.delete("/{filename}", response_model=DeleteResponse)
+@router.delete(
+    "/{filename}", response_model=DeleteResponse, dependencies=[Depends(require_admin_key)]
+)
 async def remove_document(filename: str) -> DeleteResponse:
     removed = delete_document(filename)
     if removed == 0:
