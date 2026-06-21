@@ -243,7 +243,7 @@ export default function App() {
           >
             <Menu size={22} />
           </button>
-          <span className="text-lg font-semibold tracking-[-0.27px]">Company Database</span>
+          <span className="text-lg font-semibold tracking-[-0.27px]">Knowledge Core</span>
         </header>
 
         <div className="min-h-0 flex-1">
