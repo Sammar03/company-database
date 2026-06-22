@@ -13,3 +13,6 @@ frontend/.env
 # Misc
 .DS_Store
 *.local
+
+# Local-only LLM context doc (never commit)
+Description.md

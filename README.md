@@ -1,109 +1,118 @@
-# Company Document RAG Assistant
+<a id="readme-top"></a>
 
-Employees upload company documents (PDF / TXT / MD) into a shared vector store and **chat**
-with them to get grounded, **cited** answers with multi-turn conversation history. Built as a
-fast MVP per `prd.md`.
+# Knowledge Core
 
-## Architecture
+A company-document RAG assistant. Employees upload PDF, TXT, and Markdown files into a shared
+knowledge base and chat with it to get answers that are grounded in those documents, cited to
+the exact source, and aware of the conversation so far.
 
-```
-React/Vite frontend  ──REST──▶  FastAPI backend  ──▶  Neon Postgres + pgvector
-                                       │
-                                       ├──▶ Gemini  (embeddings: gemini-embedding-2, 768-dim)
-                                       └──▶ Groq    (generation: llama-3.3-70b-versatile)
-```
+- **Live demo:** https://knowledge-core-tau.vercel.app
+- Answers are drawn only from uploaded documents; when nothing relevant is found it says so
+  rather than guessing.
+- Anyone can upload; only an admin (holding a separate key) can delete documents.
 
-- **Frontend** (`/frontend`) and **backend** (`/backend`) are separate apps.
-- Backend is **stateless** — the frontend sends recent conversation turns with each chat call.
-- Vectors are stored in **Neon Postgres** via the `pgvector` extension, so the index is
-  persistent and survives redeploys (no local disk / volume needed).
-- Data flows one way: `upload → parse → chunk → embed → store → retrieve → answer`.
+<details>
+  <summary>Table of contents</summary>
 
-## Local setup
+- [Built With](#built-with)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Usage](#usage)
 
-**Backend** (Python 3.11+) — runs on **port 8010**:
+</details>
 
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-cp .env.example .env             # fill in GEMINI_API_KEY, GROQ_API_KEY, DATABASE_URL
-uvicorn app.main:app --reload --port 8010
-```
+## Built With
 
-**Frontend** (Node 18+):
+**Frontend**
+- React
+- Vite
+- TypeScript
+- Tailwind CSS
 
-```bash
-cd frontend
-npm install
-cp .env.example .env             # VITE_API_BASE=http://localhost:8010/api
-npm run dev                      # http://localhost:5173
-```
+**Backend**
+- FastAPI
+- PostgreSQL + pgvector (Neon)
 
-## Environment variables
+**AI services**
+- Google Gemini — text embeddings
+- Groq — answer generation, reranking, and follow-up query rewriting
 
-### Backend (`backend/.env`)
-| Var | Description |
-|---|---|
-| `GEMINI_API_KEY` | Google AI Studio key for embeddings (required) |
-| `GROQ_API_KEY` | Groq key for generation (required) |
-| `API_KEY` | Shared secret; clients must send it as `X-API-Key`. Empty = auth off (dev); **set in prod** |
-| `ADMIN_KEY` | Admin secret for **deleting** documents (`X-Admin-Key`); never put in the frontend. Empty = delete open (dev) |
-| `DATABASE_URL` | Neon Postgres connection string with `?sslmode=require` (required) |
-| `EMBED_MODEL` / `EMBED_DIMS` | `gemini-embedding-2` / `768` |
-| `GEN_MODEL` | `llama-3.3-70b-versatile` |
-| `CHUNK_SIZE` / `CHUNK_OVERLAP` / `TOP_K` | `1000` / `150` / `5` |
-| `MAX_UPLOAD_MB` / `MAX_CHUNKS_PER_DOC` / `MAX_FILES_PER_REQUEST` / `MAX_HISTORY_TURNS` | `25` / `1000` / `20` / `6` |
-| `CORS_ORIGINS` | Comma-separated allowed origins (default `http://localhost:5173`; **set to your deployed frontend URL in prod**) |
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Frontend (`frontend/.env`)
-| Var | Description |
-|---|---|
-| `VITE_API_BASE` | Backend API base, e.g. `http://localhost:8010/api` |
-| `VITE_API_KEY` | Must match the backend `API_KEY` (empty if backend auth is off) |
+## Getting Started
 
-## API (base `/api`)
-`/documents` and `/chat` require the `X-API-Key` header when `API_KEY` is set. `/health` is open.
-`DELETE` additionally requires the `X-Admin-Key` header when `ADMIN_KEY` is set (admin-only).
-- `GET /health` → `{ status }` (lightweight liveness probe)
-- `POST /documents` (multipart `files`) → `{ indexed, errors }` (any user)
-- `GET /documents` → `{ documents }`
-- `DELETE /documents/{filename}` → `{ deleted, removed_chunks }` (**admin only**)
-- `POST /chat` → `{ answer, sources, grounded }`
+To get a local copy up and running, follow these steps. The backend and frontend are separate
+apps and run on different ports (backend `8010`, frontend `5173`).
 
-## External dependencies
-| Service | Role | Free tier | If it goes down |
-|---|---|---|---|
-| **Gemini** (`google-genai`) | Embeddings | Free tier with rate limits | Upload + chat fail with a clear error; cached index still listed |
-| **Groq** | Answer generation | Free tier with rate limits | Chat returns a 429/500 with a friendly message; documents stay indexed |
-| **Neon** (Postgres + pgvector) | Persistent vector store | Free tier, no credit card | Upload/chat fail with a clear error; data is safe in Neon |
+### Prerequisites
 
-## Deployment
+- Python 3.11+
+- Node.js 18+ and npm
+  ```sh
+  npm install npm@latest -g
+  ```
+- Three free credentials:
+  - A **Gemini** API key — https://aistudio.google.com/apikey
+  - A **Groq** API key — https://console.groq.com/keys
+  - A **Neon** Postgres connection string — https://neon.tech (use the pooled string, keep `?sslmode=require`)
 
-### Database → Neon 
-1. Create a project at [neon.tech](https://neon.tech) and a database.
-2. Copy the connection string (keep `?sslmode=require`). The app auto-creates the
-   `vector` extension, table, and indexes on first run — no manual migration.
+### Installation
 
-### Backend → Hugging Face Spaces (Docker)
-1. Create a new Space at [huggingface.co/new-space](https://huggingface.co/new-space) →
-   **SDK: Docker** → blank template.
-2. Push the **contents of `/backend`** to the Space repo (the `Dockerfile` and
-   `backend/README.md` — whose YAML header sets `sdk: docker` and `app_port: 8000` —
-   must sit at the Space repo root).
-3. In the Space → **Settings → Variables and secrets**, add: `GEMINI_API_KEY`,
-   `GROQ_API_KEY`, `DATABASE_URL` (Neon), `API_KEY` (a long random secret),
-   `ADMIN_KEY` (a different secret, shared only with admins), and
-   `CORS_ORIGINS=https://<your-frontend>.vercel.app`.
-4. The Space builds the image and serves at `https://<user>-<space>.hf.space`.
-   API base: `https://<user>-<space>.hf.space/api`. Health: `/api/health`.
+1. Clone the repo
+   ```sh
+   git clone https://github.com/Sammar03/Knowledge-Core.git
+   cd Knowledge-Core
+   ```
+2. Set up the backend (from the repo root)
+   ```sh
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate        # Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   cp .env.example .env
+   ```
+3. Add your keys to `backend/.env`
+   ```env
+   GEMINI_API_KEY=your-gemini-key
+   GROQ_API_KEY=your-groq-key
+   DATABASE_URL=postgresql://user:password@your-host.neon.tech/neondb?sslmode=require
+   ```
+4. Run the backend (it auto-creates the pgvector table and index on first start)
+   ```sh
+   uvicorn app.main:app --reload --port 8010
+   ```
+5. Set up the frontend (in a second terminal, from the repo root)
+   ```sh
+   cd frontend
+   npm install
+   cp .env.example .env
+   ```
+6. Point the frontend at the backend in `frontend/.env`
+   ```env
+   VITE_API_BASE=http://localhost:8010/api
+   ```
+7. Run the frontend
+   ```sh
+   npm run dev                      # http://localhost:5173
+   ```
 
-> Free Spaces **sleep when idle** — the first request after a nap takes ~30–60s to wake.
-> Nothing is lost (vectors are in Neon). Fine for an internal tool.
+> Optional: set `API_KEY` (and a matching `VITE_API_KEY`) plus `ADMIN_KEY` in the env files to
+> turn on viewer auth and admin-only deletion. Left empty, both are disabled for local use.
 
-### Frontend → Vercel
-1. New Vercel project, root `/frontend` (Vite auto-detected; `vercel.json` included).
-2. Set `VITE_API_BASE=https://<user>-<space>.hf.space/api` and `VITE_API_KEY=<same as backend API_KEY>`.
-3. Deploy — `npm run build` → `dist`.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Usage
+
+1. Open http://localhost:5173.
+2. Upload one or more documents (PDF, TXT, MD) via the attach button or drag-and-drop. They are
+   parsed, chunked, embedded, and stored in the shared knowledge base.
+3. Ask a question in plain language. The answer is generated only from the uploaded documents
+   and includes numbered citations — click a number to expand the exact source passage.
+4. Ask follow-up questions; the assistant uses the conversation so far to stay on topic.
+5. If an answer genuinely isn't in the documents, the assistant replies that it couldn't find it
+   rather than inventing one.
+6. To delete a document, enter the admin key (the **Admin** control in the sidebar); deletion is
+   restricted to admins.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
