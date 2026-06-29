@@ -1,11 +1,3 @@
-"""Verify a Neon/Postgres DATABASE_URL has a working pgvector setup.
-
-Run before deploying:
-    python scripts/check_db.py                       # reads DATABASE_URL from env or ../.env
-    python scripts/check_db.py "postgresql://...?sslmode=require"
-
-Exits 0 and prints OK if pgvector works; non-zero with a clear message otherwise.
-"""
 from __future__ import annotations
 
 import os
